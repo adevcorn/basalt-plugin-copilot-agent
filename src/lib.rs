@@ -13,7 +13,7 @@ use basalt_plugin_sdk::prelude::*;
 
 basalt_plugin_meta! {
     name:              "copilot-agent",
-    version:           "0.1.0",
+    version:           env!("CARGO_PKG_VERSION"),
     hook_flags:        CAP_AGENT_LAUNCHER,
     provides:          "agent-launcher:copilot",
     requires:          "",
@@ -208,37 +208,7 @@ fn parse_copilot_line(line: &str, ps: &mut ParseState) -> Vec<AgentEvent> {
             }]
         }
 
-        "assistant.message" => {
-            let data_raw = match json_object_raw(line, "data") {
-                Some(r) => r,
-                None => return vec![],
-            };
-            let content = json_str(&data_raw, "content").unwrap_or_default();
-            let trimmed = content.trim().to_string();
-            if trimmed.is_empty() {
-                return vec![];
-            }
-            let lines: Vec<String> = trimmed
-                .lines()
-                .filter(|l| !l.is_empty())
-                .map(|l| l.to_string())
-                .collect();
-            let vid = format!("msg:{}", random_id());
-            vec![
-                AgentEvent::NewEntry {
-                    vendor_id: vid.clone(),
-                    tool: trimmed.clone(),
-                    category: "message".into(),
-                    raw_cmd: String::new(),
-                    file_paths: vec![],
-                },
-                AgentEvent::CloseEntry {
-                    vendor_id: vid,
-                    exit_code: 0,
-                    output_lines: lines,
-                },
-            ]
-        }
+        "assistant.message" => vec![],
 
         "result" => {
             // May carry sessionId — emit that first, then SessionEnded.
@@ -403,14 +373,6 @@ fn shell_file_paths(cmd: &str) -> Vec<String> {
         })
         .map(|s| s.to_string())
         .collect()
-}
-
-/// Tiny deterministic "random" ID derived from state pointer — just needs to
-/// be unique enough to avoid vendor_id collisions within one session.
-fn random_id() -> String {
-    static COUNTER: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
-    let n = COUNTER.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
-    format!("{:08x}", n)
 }
 
 // ---------------------------------------------------------------------------
