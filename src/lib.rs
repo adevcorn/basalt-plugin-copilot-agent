@@ -31,21 +31,40 @@ fn agent_metadata() -> AgentMetadata {
     AgentMetadata {
         name: "GitHub Copilot".into(),
         executable: "/opt/homebrew/bin/copilot".into(),
-        args: vec!["chat".into(), "--output-format".into(), "json".into()],
-        // New session with prompt
-        resume_new_args: vec![
-            "chat".into(),
+        args: vec![
+            "--allow-all-paths".into(),
             "--output-format".into(),
             "json".into(),
+            "--allow-all-tools".into(),
+        ],
+        // New session with prompt
+        resume_new_args: vec![
+            "--allow-all-paths".into(),
+            "--output-format".into(),
+            "json".into(),
+            "--allow-all-tools".into(),
+            "-p".into(),
             "{prompt}".into(),
         ],
         // Resume prior session using --continue
         resume_cont_args: vec![
-            "chat".into(),
+            "--resume={session_id}".into(),
+            "--allow-all-paths".into(),
             "--output-format".into(),
             "json".into(),
-            "--continue".into(),
+            "--allow-all-tools".into(),
+            "-p".into(),
             "{prompt}".into(),
+        ],
+        execution_tier: AgentExecutionTier::StructuredDirect,
+        workspace_capabilities: vec![
+            "speculative-edits".into(),
+            "approval-required".into(),
+            "utf8-text".into(),
+            "create".into(),
+            "delete".into(),
+            "rename".into(),
+            "materialized-copy".into(),
         ],
     }
 }
@@ -57,12 +76,13 @@ fn agent_metadata() -> AgentMetadata {
 
 struct ParseState {
     open_calls: Vec<String>,
+    open_message: bool,
 }
 
 impl ParseState {
     fn decode(state: &[u8]) -> Self {
         if state.len() < 2 {
-            return Self { open_calls: vec![] };
+            return Self { open_calls: vec![], open_message: false };
         }
         let count = u16::from_le_bytes([state[0], state[1]]) as usize;
         let mut items = Vec::with_capacity(count);
@@ -81,7 +101,8 @@ impl ParseState {
             }
             cur += klen;
         }
-        Self { open_calls: items }
+        let open_message = state.get(cur).copied().unwrap_or(0) != 0;
+        Self { open_calls: items, open_message }
     }
 
     fn encode(&self) -> Vec<u8> {
@@ -94,6 +115,7 @@ impl ParseState {
             out.extend_from_slice(&klen.to_le_bytes());
             out.extend_from_slice(&bytes[..klen as usize]);
         }
+        out.push(self.open_message as u8);
         out
     }
 
@@ -208,7 +230,7 @@ fn parse_copilot_line(line: &str, ps: &mut ParseState) -> Vec<AgentEvent> {
             }]
         }
 
-        "assistant.message" => vec![],
+        "assistant.message" => parse_assistant_message(line, ps),
 
         "result" => {
             // May carry sessionId — emit that first, then SessionEnded.
@@ -217,6 +239,7 @@ fn parse_copilot_line(line: &str, ps: &mut ParseState) -> Vec<AgentEvent> {
                 events.push(AgentEvent::SessionIDAvailable(sid));
             }
             let exit_code = json_int(line, "exitCode").unwrap_or(0);
+            ps.open_message = false;
             events.push(AgentEvent::SessionEnded {
                 success: exit_code == 0,
             });
@@ -225,6 +248,33 @@ fn parse_copilot_line(line: &str, ps: &mut ParseState) -> Vec<AgentEvent> {
 
         _ => vec![],
     }
+}
+
+fn parse_assistant_message(line: &str, ps: &mut ParseState) -> Vec<AgentEvent> {
+    let text = json_object_raw(line, "data")
+        .and_then(|data_raw| json_str(&data_raw, "content"))
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if text.is_empty() {
+        return vec![];
+    }
+
+    if !ps.open_message {
+        ps.open_message = true;
+        return vec![AgentEvent::NewEntry {
+            vendor_id: "copilot-message".into(),
+            tool: text,
+            category: "message".into(),
+            raw_cmd: String::new(),
+            file_paths: vec![],
+        }];
+    }
+
+    vec![AgentEvent::AppendToEntry {
+        vendor_id: "copilot-message".into(),
+        text,
+    }]
 }
 
 // ---------------------------------------------------------------------------
