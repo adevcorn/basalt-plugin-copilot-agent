@@ -313,9 +313,13 @@ fn classify_tool(tool_name: &str, args_raw: &str) -> (String, String, Vec<String
                 .or_else(|| json_str(args_raw, "file_path"))
                 .unwrap_or_default();
             let name_part = path.rsplit('/').next().unwrap_or(&path).to_string();
+            let category = match tool_name {
+                "create_file" => "create",
+                _ => "write",
+            };
             (
                 format!("Write {}", name_part),
-                "write".into(),
+                category.into(),
                 if path.is_empty() {
                     vec![]
                 } else {
@@ -349,8 +353,17 @@ fn classify_tool(tool_name: &str, args_raw: &str) -> (String, String, Vec<String
                 })
                 .collect::<Vec<_>>()
                 .join(" ");
-            (display, "tool".into(), vec![], raw)
+            (display, "run".into(), vec![], raw)
         }
+    }
+}
+
+fn shell_mutation_classify(first: &str) -> (String, String) {
+    match first {
+        "mv" => (format!("Move {}", first), "move".into()),
+        "mkdir" | "touch" => (format!("Create {}", first), "create".into()),
+        "rm" => (format!("Delete {}", first), "delete".into()),
+        _ => (format!("Write {}", first), "write".into()),
     }
 }
 
@@ -359,10 +372,10 @@ fn shell_classify(cmd: &str) -> (String, String) {
     let first = inner.split_whitespace().next().unwrap_or("").to_lowercase();
     match first.as_str() {
         "ls" | "find" | "cat" | "head" | "tail" | "grep" | "rg" | "fd" | "stat" => {
-            (format!("Read {}", first), "read".into())
+            (format!("List {}", first), "list".into())
         }
         "cp" | "mv" | "mkdir" | "touch" | "rm" | "tee" | "sed" | "awk" => {
-            (format!("Write {}", first), "write".into())
+            shell_mutation_classify(&first)
         }
         "git" => {
             let sub = inner.split_whitespace().nth(1).unwrap_or("").to_string();
@@ -371,7 +384,7 @@ fn shell_classify(cmd: &str) -> (String, String) {
         "cargo" | "swift" | "xcodebuild" | "make" | "npm" | "yarn" | "pnpm" => {
             (format!("Build {}", first), "build".into())
         }
-        "curl" | "wget" => (format!("Fetch {}", first), "web".into()),
+        "curl" | "wget" => (format!("Run {}", first), "run".into()),
         _ => {
             let display = if first.is_empty() {
                 "Shell".to_string()
