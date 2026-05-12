@@ -37,6 +37,8 @@ fn agent_metadata() -> AgentMetadata {
             "json".into(),
             "--allow-all-tools".into(),
             "--available-tools=basalt(*)".into(),
+            "--additional-mcp-config".into(),
+            "@.copilot/mcp.json".into(),
         ],
         // New session with prompt
         resume_new_args: vec![
@@ -45,6 +47,8 @@ fn agent_metadata() -> AgentMetadata {
             "json".into(),
             "--allow-all-tools".into(),
             "--available-tools=basalt(*)".into(),
+            "--additional-mcp-config".into(),
+            "@.copilot/mcp.json".into(),
             "-p".into(),
             "{prompt}".into(),
         ],
@@ -56,6 +60,8 @@ fn agent_metadata() -> AgentMetadata {
             "json".into(),
             "--allow-all-tools".into(),
             "--available-tools=basalt(*)".into(),
+            "--additional-mcp-config".into(),
+            "@.copilot/mcp.json".into(),
             "-p".into(),
             "{prompt}".into(),
         ],
