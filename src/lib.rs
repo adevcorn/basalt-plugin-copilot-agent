@@ -36,6 +36,7 @@ fn agent_metadata() -> AgentMetadata {
             "--output-format".into(),
             "json".into(),
             "--allow-all-tools".into(),
+            "--available-tools=basalt(*)".into(),
         ],
         // New session with prompt
         resume_new_args: vec![
@@ -43,6 +44,7 @@ fn agent_metadata() -> AgentMetadata {
             "--output-format".into(),
             "json".into(),
             "--allow-all-tools".into(),
+            "--available-tools=basalt(*)".into(),
             "-p".into(),
             "{prompt}".into(),
         ],
@@ -53,10 +55,11 @@ fn agent_metadata() -> AgentMetadata {
             "--output-format".into(),
             "json".into(),
             "--allow-all-tools".into(),
+            "--available-tools=basalt(*)".into(),
             "-p".into(),
             "{prompt}".into(),
         ],
-        execution_tier: AgentExecutionTier::StructuredDirect,
+        execution_tier: AgentExecutionTier::MountedWorkspace,
         workspace_capabilities: vec![
             "speculative-edits".into(),
             "approval-required".into(),
@@ -64,9 +67,19 @@ fn agent_metadata() -> AgentMetadata {
             "create".into(),
             "delete".into(),
             "rename".into(),
-            "materialized-copy".into(),
+            "shadow-projection".into(),
+            "mcp".into(),
         ],
     }
+}
+
+// ---------------------------------------------------------------------------
+// agent_environment
+// ---------------------------------------------------------------------------
+
+#[basalt_plugin]
+fn agent_environment() -> Vec<(&'static str, &'static str)> {
+    vec![]
 }
 
 // ---------------------------------------------------------------------------
