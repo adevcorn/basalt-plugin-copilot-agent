@@ -121,6 +121,7 @@ fn agent_metadata() -> AgentMetadata {
             "shadow-projection".into(),
             "mcp".into(),
         ],
+        protocol: AgentProtocol::Cli,
     }
 }
 
