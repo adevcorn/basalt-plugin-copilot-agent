@@ -1,1 +1,0 @@
-/Users/aavu/repositories/github.com/basalt-collection/basalt-plugin-copilot-agent/target/wasm32-unknown-unknown/release/copilot_agent.wasm: /Users/aavu/repositories/github.com/basalt-collection/basalt-plugin-copilot-agent/src/lib.rs
